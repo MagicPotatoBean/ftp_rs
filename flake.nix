@@ -13,7 +13,7 @@
     {
       devShells.${system}.default = pkgs.mkShell
       {
-        packages = with pkgs; [ rustc cargo bacon ]; # whatever you need
+        packages = with pkgs; [ rustc cargo bacon rustfmt ]; # whatever you need
       };
     };
 }
