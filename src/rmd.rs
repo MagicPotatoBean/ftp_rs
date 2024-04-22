@@ -1,50 +1,30 @@
-use std::{net::TcpStream, io::Write};
+use std::{io::Write, net::TcpStream, path::PathBuf};
 
-use crate::{FtpResponseCode, FtpState};
+use crate::{FtpCode, FtpState, ftp_methods::is_owned};
 
-pub fn template(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
+pub fn rmd(
+    stream: &mut TcpStream,
+    state: &mut FtpState,
+    request: Option<String>,
+) -> Option<()> {
     if state.authenticated {
-        let file_path = if let Some(usr_path) = request {
-            let path = state
+        let mut file_path = state
                 .permission_dir
-                .join(&state.cwd)
-                .join(usr_path)
-                .canonicalize()
-                .ok()?;
-            if path.starts_with(&state.permission_dir) {
-                path
-            } else {
-                stream
-                    .write_all(
-                        FtpResponseCode::FileNotFoundOrInvalidPerms
-                            .to_string("Not found or invalid permissions")
-                            .as_bytes(),
-                    )
-                    .ok()?;
-                return Some(());
+                .join(&state.cwd);
+            if let Some(usr_path) = request {
+                file_path.push(usr_path);
             }
+        if !is_owned(&state.permission_dir, &file_path) {
+            FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You do not have access to this directory").ok()?;
+            return Some(())
+        }
+        if std::fs::remove_dir_all(file_path).is_ok() {
+            FtpCode::RequestCompleted.send(stream, "Succesfully deleted directory").ok()?;
         } else {
-            if let Ok(path) = PathBuf::from(&state.permission_dir)
-                .join(&state.cwd)
-                .canonicalize()
-            {
-                if path.starts_with(&state.permission_dir) {
-                    path
-                } else {
-                    stream
-                        .write_all(
-                            FtpResponseCode::FileNotFoundOrInvalidPerms
-                                .to_string("Not found or invalid permissions")
-                                .as_bytes(),
-                        )
-                        .ok()?;
-                    return Some(());
-                }
-            } else {
-                return Some(());
-            }
-        };
+            FtpCode::FileNotFoundOrInvalidPerms.send(stream, "Failed to delete directory").ok()?;
+        }
     } else {
-        stream.write_all(FtpResponseCode::NotLoggedIn.to_string("Invalid username or password").as_bytes()).ok()?;
-    }
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
+    };
+    Some(())
 }

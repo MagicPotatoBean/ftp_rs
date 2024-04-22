@@ -1,60 +1,30 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::{io::Write, net::TcpStream, ops::Div, os::unix::ffi::OsStrExt, path::PathBuf};
 
-use crate::{FtpResponseCode, FtpState};
+use crate::ftp_methods::is_owned;
+use crate::{FtpCode, FtpState};
 
 pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
         match state.data_connection {
             Some(ref mut data_stream) => {
+                
+                let mut file_path = state.permission_dir.join(&state.cwd);
+                if let Some(usr_dir) = request {
+                    file_path.push(usr_dir);
+                }
+                if !is_owned(&state.permission_dir, &file_path) {
+            FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You do not have access to this directory").ok()?;
+            return Some(());
+                }
                 println!("Datastream is some, writing to it.");
                 stream
                     .write_all(
-                        FtpResponseCode::DataConOpenTransferStarting
+                        FtpCode::DataConOpenTransferStarting
                             .to_string("Transfer started")
                             .as_bytes(),
                     )
                     .ok()?;
-                let file_path = if let Some(usr_path) = request {
-                    let path = state
-                        .permission_dir
-                        .join(&state.cwd)
-                        .join(usr_path)
-                        .canonicalize()
-                        .ok()?;
-                    if path.starts_with(&state.permission_dir) {
-                        path
-                    } else {
-                        stream
-                            .write_all(
-                                FtpResponseCode::FileNotFoundOrInvalidPerms
-                                    .to_string("Not found or invalid permissions")
-                                    .as_bytes(),
-                            )
-                            .ok()?;
-                        return Some(());
-                    }
-                } else {
-                    if let Ok(path) = PathBuf::from(&state.permission_dir)
-                        .join(&state.cwd)
-                        .canonicalize()
-                    {
-                        if path.starts_with(&state.permission_dir) {
-                            path
-                        } else {
-                            stream
-                                .write_all(
-                                    FtpResponseCode::FileNotFoundOrInvalidPerms
-                                        .to_string("Not found or invalid permissions")
-                                        .as_bytes(),
-                                )
-                                .ok()?;
-                            return Some(());
-                        }
-                    } else {
-                        return Some(());
-                    }
-                };
                 let display_path = if !(file_path
                     .display()
                     .to_string()
@@ -180,7 +150,7 @@ pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                 state.data_connection = None;
                 stream
                     .write_all(
-                        FtpResponseCode::ConClosedRequestSuccess
+                        FtpCode::ConClosedRequestSuccess
                             .to_string("Success")
                             .as_bytes(),
                     )
@@ -190,7 +160,7 @@ pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                 println!("Datastream is none, informing user.");
                 stream
                     .write_all(
-                        FtpResponseCode::CantOpenDataCon
+                        FtpCode::CantOpenDataCon
                             .to_string("Data connection wasnt open")
                             .as_bytes(),
                     )
@@ -198,12 +168,8 @@ pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
             }
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
+        FtpCode::NotLoggedIn
+            .send(stream, "Invalid username or password")
             .ok()?;
     };
     Some(())

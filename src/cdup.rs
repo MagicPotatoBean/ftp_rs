@@ -1,34 +1,23 @@
 use std::{io::Write, net::TcpStream, path::PathBuf};
 
-use crate::{FtpResponseCode, FtpState};
+use crate::{FtpCode, FtpState};
 
 pub fn cdup(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
         if state.cwd.pop() {
-            stream
-                .write_all(
-                    FtpResponseCode::CmdOk
-                        .to_string(&format!("{}{}", state.display_dir, state.cwd.display()))
-                        .as_bytes(),
+            FtpCode::CmdOk
+                .send(
+                    stream,
+                    &format!("{}{}", state.display_dir, state.cwd.display()),
                 )
                 .ok()?;
         } else {
-            stream
-                .write_all(
-                    FtpResponseCode::FileNotFoundOrInvalidPerms
-                        .to_string("You dont have permission to enter that folder.")
-                        .as_bytes(),
-                )
+            FtpCode::FileNotFoundOrInvalidPerms
+                .send(stream, "You dont have permission to enter that folder")
                 .ok()?;
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
-            .ok()?;
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
     }
     Some(())
 }

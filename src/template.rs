@@ -6,6 +6,6 @@ pub fn template(stream: &mut TcpStream, state: &mut FtpState, request: Option<St
     if state.authenticated {
 
     } else {
-        stream.write_all(FtpResponseCode::NotLoggedIn.to_string("Invalid username or password").as_bytes()).ok()?;
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
     }
 }

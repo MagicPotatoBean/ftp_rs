@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{FtpResponseCode, FtpState};
+use crate::{FtpCode, FtpState};
 
 pub fn port(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
@@ -12,34 +12,16 @@ pub fn port(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
         let addr = decompose_port(&request?)?;
         match TcpStream::connect(addr) {
             Ok(new_stream) => {
-                stream
-                    .write_all(
-                        FtpResponseCode::CmdOk
-                            .to_string(&format!("Opened data connection on {}", addr))
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                FtpCode::CmdOk.send(stream, &format!("Opened data connection on {}", addr)).ok()?;
                 state.data_connection = Some(new_stream);
             }
             Err(_) => {
-                stream
-                    .write_all(
-                        FtpResponseCode::CantOpenDataCon
-                            .to_string("Failed to open data connection")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                FtpCode::CantOpenDataCon.send(stream, "Failed to open data connection").ok()?;
                 return Some(());
             }
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
-            .ok()?;
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
     }
     Some(())
 }
@@ -59,7 +41,7 @@ fn decompose_port(data: &str) -> Option<SocketAddrV4> {
     ip_str.push_str(&ip_parts.get(3)?);
     let ip = Ipv4Addr::from_str(&ip_str).ok()?;
     let port_parts: Vec<String> = chunks.take(2).map(|item| item.to_owned()).collect();
-    let (a, b): (u16, u16) = (port_parts[0].parse().ok()?, port_parts[1].parse().ok()?);
+    let (a, b): (u16, u16) = (port_parts.get(0)?.parse().ok()?, port_parts.get(1)?.parse().ok()?);
     let port = a * 256 as u16 + b;
     Some(SocketAddrV4::new(ip, port))
 }

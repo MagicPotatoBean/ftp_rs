@@ -1,73 +1,50 @@
-use std::{io::Write, net::TcpStream};
+use std::{io::Write, net::TcpStream, path::PathBuf};
 
-use crate::{FtpResponseCode, FtpState};
+use crate::{ftp_methods::is_owned, FtpCode, FtpState};
 
 pub fn retr(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
         if let (Some(data_con), Some(file)) = (state.data_connection.as_mut(), request) {
-            stream
-                .write_all(
-                    FtpResponseCode::DataConOpenTransferStarting
-                        .to_string("Transfer started")
-                        .as_bytes(),
-                )
-                .ok()?;
-            if let Ok(requested_file) = state
-                .permission_dir
-                .join(&state.cwd)
-                .join(file)
-                .canonicalize()
-            {
-                if requested_file.starts_with(&state.permission_dir) {
-                    if data_con.write_all(b"file_data").is_ok() {
-                        println!("Sent file");
-                        stream
-                            .write_all(
-                                FtpResponseCode::RequestCompleted
-                                    .to_string("Fully transferred")
-                                    .as_bytes(),
-                            )
-                            .ok()?;
-                    } else {
-                        println!("Failed to send file");
-                        stream
-                            .write_all(
-                                FtpResponseCode::ConClosedRequestAborted
-                                    .to_string("Encountered an error")
-                                    .as_bytes(),
-                            )
-                            .ok()?;
-                    }
-                    let _ = data_con.shutdown(std::net::Shutdown::Both);
-                    state.data_connection = None;
-                } else {
-                    println!("Invalid perms");
-                    stream
-                        .write_all(
-                            FtpResponseCode::FileNotFoundOrInvalidPerms
-                                .to_string("Not found or invalid permissions")
-                                .as_bytes(),
-                        )
-                        .ok()?;
-                }
-            } else {
-                stream
-                    .write_all(
-                        FtpResponseCode::FileNotFoundOrInvalidPerms
-                            .to_string("Not found or invalid permissions")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+            let file_path = state.permission_dir.join(&state.cwd).join(file);
+            if !is_owned(&state.permission_dir, &file_path) {
+            FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You do not have access to this directory").ok()?;
+            return Some(());
             }
+            FtpCode::DataConOpenTransferStarting.send(stream, "Transfer started").ok()?;
+            if data_con.write_all(b"file_data").is_ok() {
+                println!("Sent file");
+                FtpCode::RequestCompleted.send(stream, "Fully transferred").ok()?;
+            } else {
+                println!("Failed to send file");
+                FtpCode::ConClosedRequestAborted.send(stream, "Encountered an error").ok()?;
+            }
+            let _ = data_con.shutdown(std::net::Shutdown::Both);
+            state.data_connection = None;
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
+        FtpCode::NotLoggedIn
+            .send(stream, "Invalid username or password")
             .ok()?;
     }
     Some(())
+}
+fn send(stream: &mut TcpStream, path: PathBuf) {
+    if let Ok(mut file) = std::fs::OpenOptions::new().read(true).open(path) {
+        loop {
+            let mut byte = [0u8];
+            match std::io::Read::read(&mut file, &mut byte) {
+                Ok(num) => {
+                    if num == 0 {
+                        break;
+                    }
+                    stream.write_all(&byte);
+                }
+                Err(err) => match err.kind() {
+                    std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::Interrupted => {}
+                    _ => break, // When reached end of file, break.
+                },
+            }
+        }
+    } else {
+    }
 }

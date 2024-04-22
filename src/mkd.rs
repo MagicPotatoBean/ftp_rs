@@ -1,61 +1,24 @@
 use std::{io::Write, net::TcpStream, path::PathBuf};
 
-use crate::{FtpResponseCode, FtpState};
+use crate::{FtpCode, FtpState, ftp_methods::is_owned};
 
 pub fn mkd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
-        let file_path = if let Some(usr_path) = request {
-            let path = state
-                .permission_dir
-                .join(&state.cwd)
-                .join(&usr_path);
-            if path.starts_with(&state.permission_dir) && !usr_path.contains("..") {
-                path
-            } else {
-                stream
-                    .write_all(
-                        FtpResponseCode::FileNameDisallowed
-                            .to_string("Directory names cannot include \"..\" or \"/\"")
-                            .as_bytes(),
-                    )
-                    .ok()?;
-                return Some(());
-            }
-        } else {
-            stream
-                .write_all(
-                    FtpResponseCode::ParamSyntaxErr
-                        .to_string("Must include path parameter")
-                        .as_bytes(),
-                )
-                .ok()?;
+        let mut file_path = state.permission_dir.join(&state.cwd);
+        if let Some(usr_val) = request {
+            file_path.push(usr_val);
+        }
+        if !is_owned(&state.permission_dir, &file_path) {
+            FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You do not have access to this directory").ok()?;
             return Some(());
-        };
+        }
         if std::fs::create_dir(file_path).is_ok() {
-            stream
-                .write_all(
-                    FtpResponseCode::FileCreated
-                        .to_string("Succesfully created directory")
-                        .as_bytes(),
-                )
-                .ok()?;
+            FtpCode::FileCreated.send(stream, "Succesfully created directory").ok()?;
         } else {
-            stream
-                .write_all(
-                    FtpResponseCode::FileNotFoundOrInvalidPerms
-                        .to_string("Failed to create directory")
-                        .as_bytes(),
-                )
-                .ok()?;
+            FtpCode::FileNotFoundOrInvalidPerms.send(stream, "Couldnt create directory").ok()?;
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
-            .ok()?;
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
     };
     Some(())
 }

@@ -1,13 +1,7 @@
 use std::{io::Write, net::TcpStream};
 
-use crate::FtpResponseCode;
+use crate::FtpCode;
 
 pub fn handshake(stream: &mut TcpStream) -> Option<()> {
-    stream
-        .write_all(
-            FtpResponseCode::CmdOk
-                .to_string("Welcome to my shitty FTP server")
-                .as_bytes(),
-        )
-        .ok()
+    FtpCode::CmdOk.send(stream, "Welcome to my RFC959 FTP server").ok()
 }

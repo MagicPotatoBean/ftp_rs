@@ -1,6 +1,6 @@
 use std::{io::Write, net::TcpStream};
 
-use crate::{FtpResponseCode, FtpState, Types};
+use crate::{FtpCode, FtpState, Types};
 
 pub fn set_type(
     stream: &mut TcpStream,
@@ -10,33 +10,15 @@ pub fn set_type(
     if state.authenticated {
         if let Some(new_type) = request {
             state.data_type = if let Ok(new_type) = Types::try_from(new_type.as_str()) {
-                stream
-                    .write_all(
-                        FtpResponseCode::CmdOk
-                            .to_string("Changed transfer type")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                FtpCode::CmdOk.send(stream, "Changed transfer type").ok()?;
                 new_type
             } else {
-                stream
-                    .write_all(
-                        FtpResponseCode::ParamSyntaxErr
-                            .to_string("Unknown requested type")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                FtpCode::ParamSyntaxErr.send(stream, "Unknown requested type").ok()?;
                 return Some(());
             }
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
-            .ok()?;
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
     }
     Some(())
 }

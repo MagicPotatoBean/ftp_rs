@@ -1,6 +1,6 @@
 use std::{io::Write, net::TcpStream, path::PathBuf};
 
-use crate::{FtpResponseCode, FtpState};
+use crate::{FtpCode, FtpState};
 
 pub fn cwd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
@@ -20,49 +20,19 @@ pub fn cwd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>
                     } else {
                         state.cwd = PathBuf::from("");
                     }
-                    stream
-                        .write_all(
-                            FtpResponseCode::RequestCompleted
-                                .to_string(&format!("{}{}", state.display_dir, state.cwd.display()))
-                                .as_bytes(),
-                        )
-                        .ok()?;
+                    FtpCode::RequestCompleted.send(stream, &format!("{}{}", state.display_dir, state.cwd.display())).ok()?;
                 } else {
-                    stream
-                        .write_all(
-                            FtpResponseCode::FileNotFoundOrInvalidPerms
-                                .to_string("You dont have permission to enter that folder.")
-                                .as_bytes(),
-                        )
-                        .ok()?;
+                    FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You dont have permission to enter that folder").ok()?;
                 }
                 println!("{}", actual_wd.display());
             } else {
-                stream
-                    .write_all(
-                        FtpResponseCode::FileNotFoundOrInvalidPerms
-                            .to_string("You dont have permission to enter that folder.")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You dont have permission to enter that folder").ok()?;
             }
         } else {
-            stream
-                .write_all(
-                    FtpResponseCode::ParamSyntaxErr
-                        .to_string("Path must be specified")
-                        .as_bytes(),
-                )
-                .ok()?;
+            FtpCode::ParamSyntaxErr.send(stream, "Path must be specified").ok()?;
         }
     } else {
-        stream
-            .write_all(
-                FtpResponseCode::NotLoggedIn
-                    .to_string("Invalid username or password")
-                    .as_bytes(),
-            )
-            .ok()?;
+        FtpCode::NotLoggedIn.send(stream, "Invalid username or password").ok()?;
     }
     Some(())
 }
