@@ -1,8 +1,8 @@
-use std::{net::TcpStream, io::Write};
+use std::net::TcpStream;
 
 use crate::{FtpCode, FtpState};
 
-pub fn pwd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
+pub fn pwd(stream: &mut TcpStream, state: &mut FtpState, _request: Option<String>) -> Option<()> {
     if state.authenticated {
         FtpCode::FileCreated.send(stream, &format!("{}{}", state.display_dir, state.cwd.display())).ok()?;
     } else {

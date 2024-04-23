@@ -1,5 +1,4 @@
 use std::{
-    fmt::Display,
     io::{Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream},
     path::{Path, PathBuf},
@@ -24,6 +23,7 @@ mod syst;
 mod user;
 mod stor;
 mod rmd;
+mod dele;
 fn main() {
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 65432))
         .expect("Failed to bind to port.");
@@ -74,6 +74,8 @@ fn main() {
                                 FtpMethod::Pwd => pwd::pwd(&mut stream, &mut state, request.data),
                                 FtpMethod::Rmd => rmd::rmd(&mut stream, &mut state, request.data),
                                 FtpMethod::Stor => stor::stor(&mut stream, &mut state, request.data),
+                                FtpMethod::Dele => dele::dele(&mut stream, &mut state, request.data),
+                                FtpMethod::Rein => rein::rein(&mut stream, &mut state, request.data),
                                 method => stream
                                     .write_all(
                                         FtpCode::CmdNotImpl
@@ -93,11 +95,9 @@ fn main() {
                         }
                         Err(err) => {
                             println!("Request failed: \"{err}\"");
-                            stream.write_all(
-                                FtpCode::CmdNotImpl
-                                    .to_string("Not implemented")
-                                    .as_bytes(),
-                            );
+                            if FtpCode::CmdNotImpl.send(&mut stream, "Not implemented.").is_err() {
+                                break;
+                            }
                         }
                     }
                 }
@@ -128,10 +128,10 @@ impl FtpState {
             data_type: Types::ASCII,
         }
     }
-    fn cwd(mut self, cwd: PathBuf) -> Self {
-        self.cwd = cwd.canonicalize().unwrap();
-        self
-    }
+    // fn cwd(mut self, cwd: PathBuf) -> Self {
+    //     self.cwd = cwd.canonicalize().unwrap();
+    //     self
+    // }
     fn display_dir(mut self, dir: String) -> Self {
         self.display_dir = dir;
         self

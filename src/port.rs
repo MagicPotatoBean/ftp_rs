@@ -1,5 +1,4 @@
 use std::{
-    io::Write,
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
     str::FromStr,
 };

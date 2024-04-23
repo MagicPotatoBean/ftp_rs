@@ -1,8 +1,8 @@
-use std::{io::Write, net::TcpStream, path::PathBuf};
+use std::net::TcpStream;
 
 use crate::{FtpCode, FtpState};
 
-pub fn cdup(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
+pub fn cdup(stream: &mut TcpStream, state: &mut FtpState, _request: Option<String>) -> Option<()> {
     if state.authenticated {
         if state.cwd.pop() {
             FtpCode::CmdOk

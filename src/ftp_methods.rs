@@ -1,7 +1,5 @@
 use std::{fmt::Display, net::TcpStream, io::Write, path::{PathBuf, Component}};
-
-use crate::FtpState;
-
+#[allow(dead_code)]
 pub enum FtpCode {
     CmdOk,
     CmdSyntaxErr,
@@ -96,50 +94,6 @@ impl FtpCode {
         }
         code.push('\n');
         code
-    }
-    pub fn from_string(string: &str) -> Option<Self> {
-        Some(match string {
-            "200" => FtpCode::CmdOk,
-            "500" => FtpCode::CmdSyntaxErr,
-            "501" => FtpCode::ParamSyntaxErr,
-            "202" => FtpCode::CmdNotNeeded,
-            "502" => FtpCode::CmdNotImpl,
-            "503" => FtpCode::BadSequence,
-            "504" => FtpCode::CmdNotImplForParam,
-            "110" => FtpCode::RestartMarker,
-            "211" => FtpCode::SystStatusOrHelp,
-            "212" => FtpCode::DirStatus,
-            "213" => FtpCode::FileStatus,
-            "214" => FtpCode::HelpMsg,
-            "215" => FtpCode::SystemName,
-            "120" => FtpCode::ReadyInNMinutes,
-            "220" => FtpCode::ReadyForNewUser,
-            "221" => FtpCode::ServiceClosing,
-            "421" => FtpCode::ServiceNotAvailable,
-            "125" => FtpCode::DataConOpenTransferStarting,
-            "225" => FtpCode::DataConOpenNoTransfer,
-            "425" => FtpCode::CantOpenDataCon,
-            "226" => FtpCode::ConClosedRequestSuccess,
-            "426" => FtpCode::ConClosedRequestAborted,
-            "227" => FtpCode::EnteringPassive,
-            "230" => FtpCode::LoggedInProceed,
-            "530" => FtpCode::NotLoggedIn,
-            "331" => FtpCode::UnOkNeedPw,
-            "332" => FtpCode::NeedAcctForLogin,
-            "532" => FtpCode::NeedAcctForFiles,
-            "150" => FtpCode::FileOkOpeningDataCon,
-            "250" => FtpCode::RequestCompleted,
-            "257" => FtpCode::FileCreated,
-            "350" => FtpCode::RequestedFileActionRequiresInfo,
-            "450" => FtpCode::FileBusy,
-            "550" => FtpCode::FileNotFoundOrInvalidPerms,
-            "451" => FtpCode::RequestAbortedLocalErr,
-            "551" => FtpCode::RequestAbortedPageErr,
-            "452" => FtpCode::InsufficientStorage,
-            "552" => FtpCode::ExceededStorageAllocation,
-            "553" => FtpCode::FileNameDisallowed,
-            _ => return None,
-        })
     }
 }
 pub struct FtpPacket {
@@ -288,7 +242,7 @@ pub fn is_owned(permission_dir: &PathBuf, path: &PathBuf) -> bool {
         Ok(path) => {
             path.starts_with(permission_dir)
         },
-        Err(err) => {
+        Err(_) => {
             path.starts_with(permission_dir) && path.components().all(|comp| comp != Component::ParentDir)
         },
     }

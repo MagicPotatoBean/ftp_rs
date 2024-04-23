@@ -1,8 +1,5 @@
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
-use std::{io::Write, net::TcpStream, ops::Div, os::unix::ffi::OsStrExt, path::PathBuf};
-
-use crate::ftp_methods::is_owned;
-use crate::{FtpCode, FtpState};
+use std::{os::unix::{fs::MetadataExt, ffi::OsStrExt}, io::Write, net::TcpStream, ops::Div, path::PathBuf};
+use crate::{ftp_methods::is_owned, FtpCode, FtpState};
 
 pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {

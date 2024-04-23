@@ -1,4 +1,4 @@
-use std::{io::Write, net::TcpStream};
+use std::net::TcpStream;
 
 use crate::FtpCode;
 

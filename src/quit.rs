@@ -1,8 +1,8 @@
-use std::{io::Write, net::TcpStream};
+use std::net::TcpStream;
 
-use crate::{FtpCode, FtpState};
+use crate::FtpState;
 
-pub fn quit(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
+pub fn quit(stream: &mut TcpStream, _state: &mut FtpState, _request: Option<String>) -> Option<()> {
     stream.shutdown(std::net::Shutdown::Both).ok()?;
     None
 }

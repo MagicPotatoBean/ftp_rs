@@ -1,4 +1,4 @@
-use std::{io::Write, net::TcpStream, path::PathBuf};
+use std::net::TcpStream;
 
 use crate::{FtpCode, FtpState, ftp_methods::is_owned};
 
