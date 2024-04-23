@@ -289,7 +289,6 @@ pub fn is_owned(permission_dir: &PathBuf, path: &PathBuf) -> bool {
             path.starts_with(permission_dir)
         },
         Err(err) => {
-            println!("Error in is_owned : {}", err.kind());
             path.starts_with(permission_dir) && path.components().all(|comp| comp != Component::ParentDir)
         },
     }
