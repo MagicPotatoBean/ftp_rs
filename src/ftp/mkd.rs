@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpCode, FtpState, ftp_methods::is_owned};
+use crate::ftp::{FtpCode, FtpState, ftp_methods::is_owned};
 
 pub fn mkd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {

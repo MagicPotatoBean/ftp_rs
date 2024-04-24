@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpState, handshake};
+use crate::ftp::{FtpState, handshake};
 
 pub fn rein(stream: &mut TcpStream, state: &mut FtpState, _request: Option<String>) -> Option<()> {
     *state = FtpState::default();

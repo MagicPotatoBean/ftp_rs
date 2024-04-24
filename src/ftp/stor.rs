@@ -1,7 +1,7 @@
 use std::{net::TcpStream, io::{Write, Read}, fs::OpenOptions};
 
-use crate::{FtpCode, FtpState, ftp_methods::is_owned};
-
+use crate::ftp::{FtpCode, FtpState, ftp_methods::is_owned};
+use crate::ftp_log;
 pub fn stor(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
         if let Some(ref mut data_con) = state.data_connection {
@@ -30,7 +30,7 @@ pub fn stor(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                                 match err.kind() {
                                     std::io::ErrorKind::WouldBlock => {break},
                                     _ => {
-                                        println!("Error writing to file: {}", err);
+                                        ftp_log!("Error writing to file: {}", err);
                                         return Some(())
                                     }
                                 }

@@ -1,6 +1,6 @@
 use std::{net::TcpStream, path::PathBuf};
 
-use crate::{FtpCode, FtpState};
+use crate::{ftp::{FtpCode, FtpState}, ftp_log};
 
 pub fn cwd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
@@ -24,7 +24,7 @@ pub fn cwd(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>
                 } else {
                     FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You dont have permission to enter that folder").ok()?;
                 }
-                println!("{}", actual_wd.display());
+                ftp_log!("{}", actual_wd.display());
             } else {
                 FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You dont have permission to enter that folder").ok()?;
             }

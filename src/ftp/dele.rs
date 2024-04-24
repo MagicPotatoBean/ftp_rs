@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpState, ftp_methods::{FtpCode, is_owned}};
+use crate::ftp::{FtpState, ftp_methods::{FtpCode, is_owned}};
 
 pub fn dele(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {

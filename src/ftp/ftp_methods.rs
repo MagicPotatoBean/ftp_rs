@@ -1,4 +1,6 @@
 use std::{fmt::Display, net::TcpStream, io::Write, path::{PathBuf, Component}};
+
+use crate::ftp_log;
 #[allow(dead_code)]
 pub enum FtpCode {
     CmdOk,
@@ -43,6 +45,7 @@ pub enum FtpCode {
 }
 impl FtpCode {
     pub fn send(&self, stream: &mut TcpStream, msg: &str) -> Result<(), std::io::Error> {
+        ftp_log!("Response: {}", self.to_string(msg));
         stream.write_all(self.to_string(msg).as_bytes())
     }
     pub fn to_string(&self, msg: &str) -> String {

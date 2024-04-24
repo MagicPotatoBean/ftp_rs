@@ -4,8 +4,8 @@ use std::{
     net::TcpStream,
 };
 
-use crate::{ftp_methods::is_owned, FtpCode, FtpState};
-
+use crate::ftp::{ftp_methods::is_owned, FtpCode, FtpState};
+use crate::ftp_log;
 pub fn retr(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
         if let (Some(data_con), Some(file)) = (state.data_connection.as_mut(), request) {
@@ -37,7 +37,7 @@ pub fn retr(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                         Err(err) => match err.kind() {
                             std::io::ErrorKind::WouldBlock => break,
                             _ => {
-                                println!("Error writing to file: {}", err);
+                                ftp_log!("Error writing to file: {}", err);
                                 return Some(());
                             }
                         },

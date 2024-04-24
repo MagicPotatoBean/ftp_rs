@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpCode, FtpState};
+use crate::ftp::{FtpCode, FtpState};
 
 pub fn cdup(stream: &mut TcpStream, state: &mut FtpState, _request: Option<String>) -> Option<()> {
     if state.authenticated {

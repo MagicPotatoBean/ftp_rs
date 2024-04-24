@@ -1,0 +1,29 @@
+[2024-04-24 11:02:42 UTC] src/http/mod.rs:45:5: ==================== HTTP Server running on 0.0.0.0:80 ====================
+[2024-04-24 11:05:09 UTC] src/http/mod.rs:45:5: ==================== HTTP Server running on 0.0.0.0:80 ====================
+[2024-04-24 11:14:06 UTC] src/http/mod.rs:45:5: ==================== HTTP Server running on 0.0.0.0:80 ====================
+[2024-04-24 11:46:12 UTC] src/ftp/mod.rs:33:5: ==================== FTP Server running on 0.0.0.0:21 ====================
+[2024-04-24 11:46:12 UTC] src/http/mod.rs:45:5: ==================== HTTP Server running on 0.0.0.0:80 ====================
+[2024-04-24 11:52:36 UTC] src/http/mod.rs:67:5: 1 Thread(s) active.
+[2024-04-24 11:52:36 UTC] src/http/mod.rs:81:25: Client 127.0.0.1:58738 made a GET request
+[2024-04-24 11:52:36 UTC] src/http/http_methods.rs:181:17: Requesting main page ""
+[2024-04-24 11:52:36 UTC] src/http/http_methods.rs:210:5: ----- INCOMING -----
+< GET / HTTP/1.1
+< Host: 127.0.0.1
+< User-Agent: curl/8.4.0
+< Accept: */*
+< 
+< (BODY NOT DISPLAYED FOR MEMORY PURPOSES)
+----- OUTGOING -----
+> HTTP/1.1 200 Ok
+> 
+> To upload, type:
+> $ curl --upload-file <filename> http://127.0.0.1:80
+> 
+> To download, type:
+> $ curl http://127.0.0.1:80/<file_id>/<file_name> --output filename.txt
+> 
+> And to delete, type: 
+> $ curl -X DELETE http://127.0.0.1:80/<file_id>/<file_name>
+> 
+> If you would like this output to be in HTML, please add "text/html" as an accepted format in your "Accept" header.
+

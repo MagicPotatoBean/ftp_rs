@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpCode, FtpState};
+use crate::ftp::{FtpCode, FtpState};
 
 pub fn user(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     state.authenticated = false;

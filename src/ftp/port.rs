@@ -3,11 +3,11 @@ use std::{
     str::FromStr,
 };
 
-use crate::{FtpCode, FtpState};
-
+use crate::ftp::{FtpCode, FtpState};
+use crate::ftp_log;
 pub fn port(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
-        println!("Attempting to change port.");
+        ftp_log!("Attempting to change port.");
         let addr = decompose_port(&request?)?;
         match TcpStream::connect(addr) {
             Ok(new_stream) => {

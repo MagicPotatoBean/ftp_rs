@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpCode, FtpState, ftp_methods::is_owned};
+use crate::ftp::{FtpCode, FtpState, ftp_methods::is_owned};
 
 pub fn rmd(
     stream: &mut TcpStream,

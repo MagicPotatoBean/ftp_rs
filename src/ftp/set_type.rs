@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::{FtpCode, FtpState, Types};
+use crate::ftp::{FtpCode, FtpState, Types};
 
 pub fn set_type(
     stream: &mut TcpStream,

@@ -1,5 +1,5 @@
 use std::{os::unix::{fs::MetadataExt, ffi::OsStrExt}, io::Write, net::TcpStream, ops::Div, path::PathBuf};
-use crate::{ftp_methods::is_owned, FtpCode, FtpState};
+use crate::{ftp::{ftp_methods::is_owned, FtpCode, FtpState}, ftp_log};
 
 pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
     if state.authenticated {
@@ -14,14 +14,8 @@ pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
             FtpCode::FileNotFoundOrInvalidPerms.send(stream, "You do not have access to this directory").ok()?;
             return Some(());
                 }
-                println!("Datastream is some, writing to it.");
-                stream
-                    .write_all(
-                        FtpCode::DataConOpenTransferStarting
-                            .to_string("Transfer started")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                ftp_log!("Datastream is some, writing to it.");
+                FtpCode::DataConOpenTransferStarting.send(stream, "Transfer started").ok()?;
                 let display_path = if !(file_path
                     .display()
                     .to_string()
@@ -133,35 +127,29 @@ pub fn list(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                             continue;
                         }
                     };
-                    data_stream.write_all(permissions.as_bytes()).ok()?;
-                    data_stream.write_all(b" ").ok()?;
-                    data_stream.write_all(len_str.as_bytes()).ok()?;
-                    data_stream.write_all(b" ").ok()?;
-                    data_stream.write_all(date_str.as_bytes()).ok()?;
-                    data_stream.write_all(b" ").ok()?;
-                    data_stream.write_all(file.file_name().as_bytes()).ok()?;
-                    data_stream.write_all(b"\r\n").ok()?;
+                    if data_stream.write_all(permissions.as_bytes()).is_err() ||
+                    data_stream.write_all(b" ").is_err() ||
+                    data_stream.write_all(len_str.as_bytes()).is_err() ||
+                    data_stream.write_all(b" ").is_err() ||
+                    data_stream.write_all(date_str.as_bytes()).is_err() ||
+                    data_stream.write_all(b" ").is_err() ||
+                    data_stream.write_all(file.file_name().as_bytes()).is_err() ||
+                    data_stream.write_all(b"\r\n").is_err() {
+                        FtpCode::ConClosedRequestAborted.send(stream, "Failed to send file data").ok()?;
+                        return Some(());
+                    }
                 }
-                data_stream.write_all(b"\r\n").ok()?;
-                data_stream.shutdown(std::net::Shutdown::Both).ok()?;
+                if data_stream.write_all(b"\r\n").is_err() ||
+                data_stream.shutdown(std::net::Shutdown::Both).is_err() {
+                    FtpCode::ConClosedRequestAborted.send(stream, "Failed to close data stream").ok()?;
+                    return Some(());
+                }
                 state.data_connection = None;
-                stream
-                    .write_all(
-                        FtpCode::ConClosedRequestSuccess
-                            .to_string("Success")
-                            .as_bytes(),
-                    )
-                    .ok()?;
+                FtpCode::ConClosedRequestSuccess.send(stream, "Success").ok()?;
             }
             None => {
-                println!("Datastream is none, informing user.");
-                stream
-                    .write_all(
-                        FtpCode::CantOpenDataCon
-                            .to_string("Data connection wasnt open")
-                            .as_bytes(),
-                    )
-                    .ok()?
+                ftp_log!("Datastream is none, informing user.");
+                FtpCode::CantOpenDataCon.send(stream, "Data connection wasnt open").ok()?;
             }
         }
     } else {
