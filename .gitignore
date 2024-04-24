@@ -1,1 +1,4 @@
 /target
+/static/users/*
+ftp.log
+http.log
