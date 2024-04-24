@@ -219,13 +219,13 @@ macro_rules! ftp_log {
     () => {
         use std::io::Write;
         let current_time: DateTime<Utc> = Utc::now();
-        std::fs::OpenOptions::new().append(true).open("ftp.log").expect("Failed to open ftp.log file").write_all(format!("[{} UTC] {}:{}:{}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!()).as_bytes()).expect("Failed to write to log file");
+        std::fs::OpenOptions::new().append(true).open("logs/ftp.log").expect("Failed to open ftp.log file").write_all(format!("[{} UTC] {}:{}:{}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!()).as_bytes()).expect("Failed to write to log file");
         println!("[{} UTC] {}:{}:{}", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!());
     };
     ($($arg:tt)*) => {{
         use std::io::Write;
         let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-        std::fs::OpenOptions::new().append(true).open("ftp.log").expect("Failed to open ftp.log file").write_all(format!("[{} UTC] {}:{}:{}: {}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!(), format!($($arg)*)).as_bytes()).expect("Failed to write to log file");
+        std::fs::OpenOptions::new().append(true).open("logs/ftp.log").expect("Failed to open ftp.log file").write_all(format!("[{} UTC] {}:{}:{}: {}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!(), format!($($arg)*)).as_bytes()).expect("Failed to write to log file");
         println!("[{} UTC] {}:{}:{}: {}", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!(), format!($($arg)*));
     }};
 }
