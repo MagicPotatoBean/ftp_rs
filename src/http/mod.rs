@@ -13,25 +13,7 @@ use std::{
 
 pub mod http_methods;
 pub mod http_request;
-static PATH: &str = "static";
-fn main() {
-    const MAX_THREADS: usize = 32;
-    const ADDRESS: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 80);
-    const FILE_LIFETIME: Duration = Duration::from_secs(60 * 60); // 1 Hours
-
-    garbage_collector_loop(FILE_LIFETIME);
-    let server_thread = thread::Builder::new()
-        .name("ServerThread".to_owned())
-        .spawn(|| host_server(SocketAddr::V4(ADDRESS), MAX_THREADS))
-        .expect("Failed to spawn server");
-    match server_thread.join() {
-        Ok(Ok(_)) => http_log!("Server successfully closed."),
-        Ok(Err(error)) => {
-            http_log!("Server returned error! Error message: {:?}", error)
-        }
-        Err(error) => http_log!("Server panicked! Panic message: {:?}", error),
-    }
-}
+static PATH: &str = "./static/users";
 /// Creates a TcpListener on the provided address, accepting all incoming requests and sending the request to
 /// ```no_run
 /// handle_connection()
@@ -39,7 +21,7 @@ fn main() {
 /// to respond
 /// # Errors
 /// Returns an IO error if the TcpListener fails to bind to the requested address.
-pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<()> {
+pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
     http_log!("==================== HTTP Server running on {address} ====================");
@@ -50,7 +32,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<(
             let new_addr = address.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client, new_addr))
+                .spawn(move || handle_connection(passed_count, client, new_addr, salt))
                 .is_err()
             {
                 /* Spawn thread to handle request */
@@ -63,7 +45,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<(
     Ok(())
 }
 /// Takes in a threadcounter and TcpStream, reading the entire TCP packet before responding with the requested data. The `thread_counter` variable is dropped at the end of the function, such that the strong count represents the number of threads spawned.
-fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: SocketAddr) {
+fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: SocketAddr, salt: u128) {
     http_log!(
         "{} Thread(s) active.",
         Arc::strong_count(&thread_counter) - 1
@@ -84,8 +66,12 @@ fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: Socket
                     }
                     match method.to_lowercase().trim() {
                         "get" => get(packet, address, PATH),
-                        // "put" => put(packet, address, PATH),
-                        // "delete" => delete(packet, PATH),
+                        "put" => {
+                            put(packet, address, PATH, salt);
+                        },
+                        "delete" => {
+                            delete(packet, PATH, salt);
+                        },
                         _ => {
                             http_log!("Invalid method, request ignored.");
                             let _ = packet.respond_string("HTTP/1.1 405 Method Not Allowed\r\n\r\nUnknown request method. Allowed methods: \"GET\".\r\n");

@@ -8,17 +8,17 @@ use std::{
 
 use crate::ftp::{FtpCode, FtpState};
 use crate::ftp_log;
-pub fn pass(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>) -> Option<()> {
+pub fn pass(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>, salt: u128) -> Option<()> {
     let mut authname = None;
     match (state.user.clone(), request) {
         (Some(name), Some(pass)) => {
-            if name.chars().all(|chr| chr.is_ascii_alphanumeric()) {
+            if name.chars().all(|chr| chr.is_ascii_alphanumeric()) && name.len() > 0 {
                 match std::fs::read(PathBuf::from("./static/users").join(&name).join("auth")) {
                     Ok(auth_data) => {
                         let mut hasher = DefaultHasher::new();
-                        const SALT: u128 = 662404870180369439363339743;
+                        name.hash(&mut hasher);
                         pass.hash(&mut hasher);
-                        SALT.hash(&mut hasher);
+                        salt.hash(&mut hasher);
                         let pass_hash = hasher.finish();
                         if pass_hash.to_be_bytes().to_vec() == auth_data {
                             authname = Some(name);
@@ -30,9 +30,9 @@ pub fn pass(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                         std::io::ErrorKind::NotFound => {
                             ftp_log!("New user created: {name}");
                             let mut hasher = DefaultHasher::new();
-                            const SALT: u128 = 662404870180369439363339743;
+                            name.hash(&mut hasher);
                             pass.hash(&mut hasher);
-                            SALT.hash(&mut hasher);
+                            salt.hash(&mut hasher);
                             let pass_hash = hasher.finish();
                             if std::fs::create_dir(PathBuf::from("./static/users").join(&name))
                                 .is_err()

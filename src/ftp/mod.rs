@@ -27,7 +27,7 @@ mod stor;
 mod rmd;
 mod dele;
 mod nlst;
-pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<()> {
+pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
     ftp_log!("==================== FTP Server running on {address} ====================");
@@ -37,7 +37,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<(
             let passed_count = thread_count.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client))
+                .spawn(move || handle_connection(passed_count, client, salt))
                 .is_err()
             {
                 /* Spawn thread to handle request */
@@ -60,11 +60,13 @@ struct FtpState {
 }
 impl FtpState {
     fn auth(&mut self, username: &str) -> std::io::Result<()> {
+        self.display_dir = format!("[{username}]:/");
         self.permission_dir = PathBuf::from("./static/users").join(username).join("files").canonicalize()?;
         self.authenticated = true;
         Ok(())
     }
     fn deauth(&mut self) -> std::io::Result<()> {
+        self.display_dir = "[anonymous]:/".to_string();
         self.permission_dir = PathBuf::from("./static/unauth").canonicalize()?;
         self.authenticated = false;
         Ok(())
@@ -135,11 +137,11 @@ fn read_until_consume(mut stream: &TcpStream, chr: char) -> Vec<u8> {
         }
     }
 }
-fn handle_connection(thread_counter: Arc<()>, mut stream: TcpStream) {
+fn handle_connection(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128) {
     {
         handshake::handshake(&mut stream);
         let mut state: FtpState =
-            FtpState::default().display_dir("[root@nixos]:/".to_string());
+            FtpState::default().display_dir("[anonymous]:/".to_string());
         loop {
             match read_request(&mut stream) {
                 Ok(request) => {
@@ -149,7 +151,7 @@ fn handle_connection(thread_counter: Arc<()>, mut stream: TcpStream) {
                             user::user(&mut stream, &mut state, request.data)
                         }
                         FtpMethod::Pass => {
-                            pass::pass(&mut stream, &mut state, request.data)
+                            pass::pass(&mut stream, &mut state, request.data, salt)
                         }
                         FtpMethod::Syst => {
                             syst::syst(&mut stream, &mut state, request.data)
@@ -217,13 +219,13 @@ macro_rules! ftp_log {
     () => {
         use std::io::Write;
         let current_time: DateTime<Utc> = Utc::now();
-        std::fs::OpenOptions::new().append(true).open("http.log").expect("Failed to open http.log file").write_all(format!("[{} UTC] {}:{}:{}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!()).as_bytes()).expect("Failed to write to log file");
+        std::fs::OpenOptions::new().append(true).open("ftp.log").expect("Failed to open ftp.log file").write_all(format!("[{} UTC] {}:{}:{}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!()).as_bytes()).expect("Failed to write to log file");
         println!("[{} UTC] {}:{}:{}", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!());
     };
     ($($arg:tt)*) => {{
         use std::io::Write;
         let current_time: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
-        std::fs::OpenOptions::new().append(true).open("http.log").expect("Failed to open http.log file").write_all(format!("[{} UTC] {}:{}:{}: {}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!(), format!($($arg)*)).as_bytes()).expect("Failed to write to log file");
+        std::fs::OpenOptions::new().append(true).open("ftp.log").expect("Failed to open ftp.log file").write_all(format!("[{} UTC] {}:{}:{}: {}\n", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!(), format!($($arg)*)).as_bytes()).expect("Failed to write to log file");
         println!("[{} UTC] {}:{}:{}: {}", current_time.format("%Y-%m-%d %H:%M:%S"), file!(), line!(), column!(), format!($($arg)*));
     }};
 }
