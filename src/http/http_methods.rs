@@ -8,148 +8,149 @@ use std::{
 
 use crate::http::{http_log, http_request::HttpRequest};
 /// Hashes the current system time, converts it to hex, makes a file with that name and stores the packet body to that file
-pub fn put(mut packet: HttpRequest, address: SocketAddr, path: &'static str, salt: u128) {
-    if let Some(Ok(creds)) = packet
-        .headers()
-        .unwrap()
-        .get("Authorization")
-        .map(|item| http_auth_basic::Credentials::from_header(item.to_owned()))
-    {
-        if creds.user_id.chars().all(|chr| chr.is_ascii_alphanumeric()) {
-            if let Ok(auth_data) =
-                std::fs::read(PathBuf::from(path).join(&&creds.user_id).join("auth"))
-            {
-                let mut hasher = DefaultHasher::new();
-                creds.user_id.hash(&mut hasher);
-                creds.password.hash(&mut hasher);
-                salt.hash(&mut hasher);
-                let pass_hash = hasher.finish();
-                if pass_hash.to_be_bytes().to_vec() == auth_data {
-                    http_log!("Authenticated");
-                } else {
-                    return;
-                }
-            } else {
-                let mut hasher = DefaultHasher::new();
-                creds.user_id.hash(&mut hasher);
-                creds.password.hash(&mut hasher);
-                salt.hash(&mut hasher);
-                let pass_hash = hasher.finish();
-                if std::fs::write(
-                    PathBuf::from(path).join(&creds.user_id).join("auth"),
-                    pass_hash.to_be_bytes(),
-                )
-                .is_err()
-                {
-                    return;
-                }
-            }
+// pub fn put<const n: usize>(mut packet: HttpRequest, address: SocketAddr, path: &'static str, salt: u128, protected_names: [&'static str;n]) {
+//     if let Some(Ok(creds)) = packet
+//         .headers()
+//         .unwrap()
+//         .get("Authorization")
+//         .map(|item| http_auth_basic::Credentials::from_header(item.to_owned()))
+//     {
+//         if creds.user_id.chars().all(|chr| chr.is_ascii_alphanumeric())  && creds.user_id.len() > 0 && !protected_names.contains(&creds.user_id.as_str()) {
+//             if let Ok(auth_data) =
+//                 std::fs::read(PathBuf::from(path).join(&&creds.user_id).join("auth"))
+//             {
+//                 let mut hasher = DefaultHasher::new();
+//                 creds.user_id.hash(&mut hasher);
+//                 creds.password.hash(&mut hasher);
+//                 salt.hash(&mut hasher);
+//                 let pass_hash = hasher.finish();
+//                 if pass_hash.to_be_bytes().to_vec() == auth_data {
+//                     http_log!("Authenticated");
+//                 } else {
+//                     packet.respond_string("HTTP/1.1 401 Unauthorized\r\n\r\n Incorrect password");
+//                     return;
+//                 }
+//             } else {
+//                 let mut hasher = DefaultHasher::new();
+//                 creds.user_id.hash(&mut hasher);
+//                 creds.password.hash(&mut hasher);
+//                 salt.hash(&mut hasher);
+//                 let pass_hash = hasher.finish();
+//                 if std::fs::write(
+//                     PathBuf::from(path).join(&creds.user_id).join("auth"),
+//                     pass_hash.to_be_bytes(),
+//                 )
+//                 .is_err()
+//                 {
+//                     return;
+//                 }
+//             }
 
-            http_log!("username: {}, password: {}", creds.user_id, creds.password);
-            if let Some(name) = packet.path() {
-                let name = &name[1..]; // Remove leading "/"
-                let mut is_100_continue = false;
-                if let Some(headers) = packet.headers() {
-                    for (header, value) in headers {
-                        if header == "Expect" && value == "100-continue" {
-                            is_100_continue = true;
-                        }
-                    }
-                }
-                if is_100_continue
-                    && packet
-                        .respond_string("HTTP/1.1 100 Continue\r\n\r\n")
-                        .is_err()
-                {
-                    http_log!("Failed to 100-continue");
-                }
+//             http_log!("username: {}, password: {}", creds.user_id, creds.password);
+//             if let Some(name) = packet.path() {
+//                 let name = &name[1..]; // Remove leading "/"
+//                 let mut is_100_continue = false;
+//                 if let Some(headers) = packet.headers() {
+//                     for (header, value) in headers {
+//                         if header == "Expect" && value == "100-continue" {
+//                             is_100_continue = true;
+//                         }
+//                     }
+//                 }
+//                 if is_100_continue
+//                     && packet
+//                         .respond_string("HTTP/1.1 100 Continue\r\n\r\n")
+//                         .is_err()
+//                 {
+//                     http_log!("Failed to 100-continue");
+//                 }
 
-                let file_location = PathBuf::from(path)
-                    .join(&creds.user_id)
-                    .join("files")
-                    .join(&name); // Make sure the path doesnt include .. for path traversal
-                http_log!("file_location:{}", file_location.display());
-                if !(file_location
-                    .components()
-                    .all(|comp| comp != Component::ParentDir)
-                    && file_location
-                        .starts_with(&PathBuf::from(&path).join(&creds.user_id).join("files")))
-                {
-                    http_log!(
-                        "Request rejected: \"{}\" doesnt start with \"{}\"",
-                        file_location.display(),
-                        PathBuf::from(&path)
-                            .join(&creds.user_id)
-                            .join("files")
-                            .display()
-                    );
-                    packet.respond_string("HTTP/1.1 403 Forbidden\r\n\r\nYou do not have permission to access this directory\r\n").unwrap();
-                } else {
-                    if let Ok(mut file) = std::fs::OpenOptions::new()
-                        .create(true)
-                        .write(true)
-                        .open(&file_location)
-                    {
-                        // Read byte-by-byte from client and send to file.
-                        loop {
-                            let mut byte = [0u8];
-                            match packet.body_stream().read(&mut byte) {
-                                Ok(_) => {
-                                    if file.write(&byte).is_err() {
-                                        http_log!(
-                                            "Failed to write byte to file \"{}\"",
-                                            file_location.display()
-                                        );
-                                    }
-                                }
-                                Err(err) => match err.kind() {
-                                    io::ErrorKind::Interrupted => http_log!("Interrupted"),
-                                    io::ErrorKind::WouldBlock => break,
-                                    err => {
-                                        http_log!("Stopped writing to file: \"{err}\"");
-                                        break;
-                                    }
-                                },
-                            }
-                        }
-                        let mut addr = address.to_string();
-                        if let Some(header_map) = packet.headers() {
-                            if let Some(host_addr) = header_map.get("Host") {
-                                addr = host_addr.to_owned();
-                                addr.push_str(":");
-                                addr.push_str(&address.port().to_string());
-                            }
-                        }
-                        if packet
-                            .respond_string(&format!(
-                                "HTTP/1.1 200 Ok\r\n\r\nhttp://{}/{}\r\n",
-                                addr,
-                                PathBuf::from(creds.user_id)
-                                    .join(name)
-                                    .display()
-                                    .to_string()
-                            ))
-                            .is_err()
-                        {
-                            http_log!(
-                                "Failed to send user path to access file \"{}\"",
-                                file_location.display()
-                            );
-                        }
-                    } else {
-                        http_log!("Failed to create file \"{}\"", file_location.display());
-                    }
-                }
-            }
-        }
-    } else {
-        if packet.respond_string(&format!("HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic\r\n")).is_err() {
-            http_log!("Failed to send user packet requiring authentication");
-        }
-    }
-    packet.read_all();
-    http_log!("{packet}\n");
-}
+//                 let file_location = PathBuf::from(path)
+//                     .join(&creds.user_id)
+//                     .join("files")
+//                     .join(&name); // Make sure the path doesnt include .. for path traversal
+//                 http_log!("file_location:{}", file_location.display());
+//                 if !(file_location
+//                     .components()
+//                     .all(|comp| comp != Component::ParentDir)
+//                     && file_location
+//                         .starts_with(&PathBuf::from(&path).join(&creds.user_id).join("files")))
+//                 {
+//                     http_log!(
+//                         "Request rejected: \"{}\" doesnt start with \"{}\"",
+//                         file_location.display(),
+//                         PathBuf::from(&path)
+//                             .join(&creds.user_id)
+//                             .join("files")
+//                             .display()
+//                     );
+//                     packet.respond_string("HTTP/1.1 403 Forbidden\r\n\r\nYou do not have permission to access this directory\r\n").unwrap();
+//                 } else {
+//                     if let Ok(mut file) = std::fs::OpenOptions::new()
+//                         .create(true)
+//                         .write(true)
+//                         .open(&file_location)
+//                     {
+//                         // Read byte-by-byte from client and send to file.
+//                         loop {
+//                             let mut byte = [0u8];
+//                             match packet.body_stream().read(&mut byte) {
+//                                 Ok(_) => {
+//                                     if file.write(&byte).is_err() {
+//                                         http_log!(
+//                                             "Failed to write byte to file \"{}\"",
+//                                             file_location.display()
+//                                         );
+//                                     }
+//                                 }
+//                                 Err(err) => match err.kind() {
+//                                     io::ErrorKind::Interrupted => http_log!("Interrupted"),
+//                                     io::ErrorKind::WouldBlock => break,
+//                                     err => {
+//                                         http_log!("Stopped writing to file: \"{err}\"");
+//                                         break;
+//                                     }
+//                                 },
+//                             }
+//                         }
+//                         let mut addr = address.to_string();
+//                         if let Some(header_map) = packet.headers() {
+//                             if let Some(host_addr) = header_map.get("Host") {
+//                                 addr = host_addr.to_owned();
+//                                 addr.push_str(":");
+//                                 addr.push_str(&address.port().to_string());
+//                             }
+//                         }
+//                         if packet
+//                             .respond_string(&format!(
+//                                 "HTTP/1.1 200 Ok\r\n\r\nhttp://{}/{}\r\n",
+//                                 addr,
+//                                 PathBuf::from(creds.user_id)
+//                                     .join(name)
+//                                     .display()
+//                                     .to_string()
+//                             ))
+//                             .is_err()
+//                         {
+//                             http_log!(
+//                                 "Failed to send user path to access file \"{}\"",
+//                                 file_location.display()
+//                             );
+//                         }
+//                     } else {
+//                         http_log!("Failed to create file \"{}\"", file_location.display());
+//                     }
+//                 }
+//             }
+//         }
+//     } else {
+//         if packet.respond_string(&format!("HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic\r\n")).is_err() {
+//             http_log!("Failed to send user packet requiring authentication");
+//         }
+//     }
+//     packet.read_all();
+//     http_log!("{packet}\n");
+// }
 pub fn web_page(page: &str, packet: &mut HttpRequest, address: SocketAddr) {
     match page {
         "" => {
@@ -207,7 +208,10 @@ pub fn get(mut packet: HttpRequest, address: SocketAddr, path: &'static str) {
             http_log!("Requesting main page \"{name}\"");
             web_page(name, &mut packet, address);
         } else {
-            if let Some((username, file_path)) = name.split_once("/") {
+            if let Some((username, mut file_path)) = name.split_once("/") {
+                if file_path == "" {
+                    file_path = "index.html";
+                }
                 if let Ok(file_location) = PathBuf::from(path)
                     .join(username)
                     .join("files")
@@ -287,65 +291,65 @@ pub fn get(mut packet: HttpRequest, address: SocketAddr, path: &'static str) {
     packet.read_all();
     http_log!("{packet}\n");
 }
-pub fn delete(mut packet: HttpRequest, path: &'static str, salt: u128) {
-    if let Some(Ok(creds)) = packet
-        .headers()
-        .unwrap()
-        .get("Authorization")
-        .map(|item| http_auth_basic::Credentials::from_header(item.to_owned()))
-    {
-        if creds.user_id.chars().all(|chr| chr.is_ascii_alphanumeric()) {
-            if let Ok(auth_data) =
-                std::fs::read(PathBuf::from(path).join(&&creds.user_id).join("auth"))
-            {
-                let mut hasher = DefaultHasher::new();
-                creds.user_id.hash(&mut hasher);
-                creds.password.hash(&mut hasher);
-                salt.hash(&mut hasher);
-                let pass_hash = hasher.finish();
-                if pass_hash.to_be_bytes().to_vec() == auth_data {
-                    http_log!("Authenticated");
-                } else {
-                    return;
-                }
-            } else {
-                let mut hasher = DefaultHasher::new();
-                creds.user_id.hash(&mut hasher);
-                creds.password.hash(&mut hasher);
-                salt.hash(&mut hasher);
-                let pass_hash = hasher.finish();
-                if std::fs::write(
-                    PathBuf::from(path).join(&creds.user_id).join("auth"),
-                    pass_hash.to_be_bytes(),
-                )
-                .is_err()
-                {
-                    return;
-                }
-            }
-            if let Some(name) = packet.path() {
-                let name = &name[1..];
-                if let Ok(file_location) = PathBuf::from(path)
-                    .join(&creds.user_id)
-                    .join("files")
-                    .join(&name)
-                    .canonicalize()
-                {
-                    if file_location.starts_with(PathBuf::from(path)
-                    .join(&creds.user_id)
-                    .join("files")) {
-                        if std::fs::remove_file(file_location).is_err() {
-                            if packet.respond_string("HTTP/1.1 500 Failed to delete file.").is_err() {
-                                http_log!("Failed to send user error message");
-                            }
-                        }
-                    }
-                } else {
-                }
-            }
-        }
-    }
+// pub fn delete(mut packet: HttpRequest, path: &'static str, salt: u128) {
+//     if let Some(Ok(creds)) = packet
+//         .headers()
+//         .unwrap()
+//         .get("Authorization")
+//         .map(|item| http_auth_basic::Credentials::from_header(item.to_owned()))
+//     {
+//         if creds.user_id.chars().all(|chr| chr.is_ascii_alphanumeric()) {
+//             if let Ok(auth_data) =
+//                 std::fs::read(PathBuf::from(path).join(&&creds.user_id).join("auth"))
+//             {
+//                 let mut hasher = DefaultHasher::new();
+//                 creds.user_id.hash(&mut hasher);
+//                 creds.password.hash(&mut hasher);
+//                 salt.hash(&mut hasher);
+//                 let pass_hash = hasher.finish();
+//                 if pass_hash.to_be_bytes().to_vec() == auth_data {
+//                     http_log!("Authenticated");
+//                 } else {
+//                     return;
+//                 }
+//             } else {
+//                 let mut hasher = DefaultHasher::new();
+//                 creds.user_id.hash(&mut hasher);
+//                 creds.password.hash(&mut hasher);
+//                 salt.hash(&mut hasher);
+//                 let pass_hash = hasher.finish();
+//                 if std::fs::write(
+//                     PathBuf::from(path).join(&creds.user_id).join("auth"),
+//                     pass_hash.to_be_bytes(),
+//                 )
+//                 .is_err()
+//                 {
+//                     return;
+//                 }
+//             }
+//             if let Some(name) = packet.path() {
+//                 let name = &name[1..];
+//                 if let Ok(file_location) = PathBuf::from(path)
+//                     .join(&creds.user_id)
+//                     .join("files")
+//                     .join(&name)
+//                     .canonicalize()
+//                 {
+//                     if file_location.starts_with(PathBuf::from(path)
+//                     .join(&creds.user_id)
+//                     .join("files")) {
+//                         if std::fs::remove_file(file_location).is_err() {
+//                             if packet.respond_string("HTTP/1.1 500 Failed to delete file.").is_err() {
+//                                 http_log!("Failed to send user error message");
+//                             }
+//                         }
+//                     }
+//                 } else {
+//                 }
+//             }
+//         }
+//     }
 
-    packet.read_all();
-    http_log!("{packet}\n");
-}
+//     packet.read_all();
+//     http_log!("{packet}\n");
+// }

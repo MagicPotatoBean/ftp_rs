@@ -27,7 +27,7 @@ mod stor;
 mod rmd;
 mod dele;
 mod nlst;
-pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::io::Result<()> {
+pub fn host_server<const n: usize>(address: SocketAddr, max_threads: usize, salt: u128, protected_names: [&'static str;n]) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
     ftp_log!("==================== FTP Server running on {address} ====================");
@@ -37,7 +37,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::
             let passed_count = thread_count.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client, salt))
+                .spawn(move || handle_connection(passed_count, client, salt, protected_names))
                 .is_err()
             {
                 /* Spawn thread to handle request */
@@ -49,7 +49,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::
     drop(thread_count);
     Ok(())
 }
-struct FtpState {
+pub struct FtpState {
     user: Option<String>,
     authenticated: bool,
     cwd: PathBuf,
@@ -137,7 +137,7 @@ fn read_until_consume(mut stream: &TcpStream, chr: char) -> Vec<u8> {
         }
     }
 }
-fn handle_connection(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128) {
+fn handle_connection<const n: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;n]) {
     {
         handshake::handshake(&mut stream);
         let mut state: FtpState =
@@ -151,7 +151,7 @@ fn handle_connection(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128)
                             user::user(&mut stream, &mut state, request.data)
                         }
                         FtpMethod::Pass => {
-                            pass::pass(&mut stream, &mut state, request.data, salt)
+                            pass::pass(&mut stream, &mut state, request.data, salt, protected_names)
                         }
                         FtpMethod::Syst => {
                             syst::syst(&mut stream, &mut state, request.data)

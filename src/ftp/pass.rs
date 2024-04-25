@@ -8,11 +8,11 @@ use std::{
 
 use crate::ftp::{FtpCode, FtpState};
 use crate::ftp_log;
-pub fn pass(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>, salt: u128) -> Option<()> {
+pub fn pass<const n: usize>(stream: &mut TcpStream, state: &mut FtpState, request: Option<String>, salt: u128, protected_names: [&str;n]) -> Option<()> {
     let mut authname = None;
     match (state.user.clone(), request) {
         (Some(name), Some(pass)) => {
-            if name.chars().all(|chr| chr.is_ascii_alphanumeric()) && name.len() > 0 {
+            if name.chars().all(|chr| chr.is_ascii_alphanumeric()) && name.len() > 0 && !protected_names.contains(&name.as_str()) {
                 match std::fs::read(PathBuf::from("./static/users").join(&name).join("auth")) {
                     Ok(auth_data) => {
                         let mut hasher = DefaultHasher::new();

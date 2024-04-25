@@ -1,5 +1,5 @@
 use crate::{http::{
-    http_methods::{delete, get, put},
+    http_methods::get,
     http_request::HttpRequest,
 }, http_log};
 use std::{
@@ -21,7 +21,7 @@ static PATH: &str = "./static/users";
 /// to respond
 /// # Errors
 /// Returns an IO error if the TcpListener fails to bind to the requested address.
-pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::io::Result<()> {
+pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
     http_log!("==================== HTTP Server running on {address} ====================");
@@ -32,7 +32,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::
             let new_addr = address.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client, new_addr, salt))
+                .spawn(move || handle_connection(passed_count, client, new_addr))
                 .is_err()
             {
                 /* Spawn thread to handle request */
@@ -45,7 +45,7 @@ pub fn host_server(address: SocketAddr, max_threads: usize, salt: u128) -> std::
     Ok(())
 }
 /// Takes in a threadcounter and TcpStream, reading the entire TCP packet before responding with the requested data. The `thread_counter` variable is dropped at the end of the function, such that the strong count represents the number of threads spawned.
-fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: SocketAddr, salt: u128) {
+fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: SocketAddr) {
     http_log!(
         "{} Thread(s) active.",
         Arc::strong_count(&thread_counter) - 1
@@ -66,12 +66,7 @@ fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: Socket
                     }
                     match method.to_lowercase().trim() {
                         "get" => get(packet, address, PATH),
-                        "put" => {
-                            put(packet, address, PATH, salt);
-                        },
-                        "delete" => {
-                            delete(packet, PATH, salt);
-                        },
+
                         _ => {
                             http_log!("Invalid method, request ignored.");
                             let _ = packet.respond_string("HTTP/1.1 405 Method Not Allowed\r\n\r\nUnknown request method. Allowed methods: \"GET\".\r\n");
@@ -79,7 +74,7 @@ fn handle_connection(thread_counter: Arc<()>, client: TcpStream, address: Socket
                     }
                 } else {
                     http_log!("No method provided");
-                    let _ = packet.respond_string("HTTP/1.1 400 Bad Request\r\n\r\nUnknown request method. Allowed methods: \"GET\", \"PUT\", \"DELETE\".\r\n");
+                    let _ = packet.respond_string("HTTP/1.1 405 Method Not Allowed\r\n\r\nUnknown request method. Allowed methods: \"GET\".\r\n");
                 }
             }
             proto => {
