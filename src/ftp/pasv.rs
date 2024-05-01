@@ -12,7 +12,7 @@ pub fn pasv(
     mut priv_addr: SocketAddr,
 ) -> Option<()> {
     if state.authenticated {
-        for port in 1025..2000 {
+        for port in 1024..=2048 {
             priv_addr.set_port(1025);
             if let Ok(listener) = TcpListener::bind(priv_addr) {
                 if let IpAddr::V4(ipv4) = pub_addr.ip() {
