@@ -203,11 +203,14 @@ pub fn web_page(page: &str, packet: &mut HttpRequest, address: SocketAddr) {
 // Reads the requested path, and if it matches a file on the server, returns the file in the body
 pub fn get(mut packet: HttpRequest, address: SocketAddr, path: &'static str) {
     if let Some(name) = packet.path() {
-        let name = &name[1..];
+        let mut name = name[1..].to_owned();
         if name == "" || name == "styles.css" || name == "script.js" || name == "favicon.ico" {
             http_log!("Requesting main page \"{name}\"");
-            web_page(name, &mut packet, address);
+            web_page(&name, &mut packet, address);
         } else {
+            if !name.contains("/") {
+                name.push('/');
+            }
             if let Some((username, mut file_path)) = name.split_once("/") {
                 if file_path == "" {
                     file_path = "index.html";

@@ -160,6 +160,8 @@ pub enum FtpMethod {
     Stat,
     Help,
     Noop,
+    // Windows
+    Opts,
 }
 impl ToString for FtpMethod {
     fn to_string(&self) -> String {
@@ -196,6 +198,7 @@ impl ToString for FtpMethod {
             FtpMethod::Stat => "stat",
             FtpMethod::Help => "help",
             FtpMethod::Noop => "noop",
+            FtpMethod::Opts => "opts",
         }
         .to_owned()
     }
@@ -236,6 +239,7 @@ impl TryFrom<String> for FtpMethod {
             "stat" => Self::Stat,
             "help" => Self::Help,
             "noop" => Self::Noop,
+            "opts" => Self::Opts,
             _ => return Err(()),
         })
     }

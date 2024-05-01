@@ -27,6 +27,7 @@ mod stor;
 mod rmd;
 mod dele;
 mod nlst;
+mod opts;
 pub fn host_server<const n: usize>(address: SocketAddr, max_threads: usize, salt: u128, protected_names: [&'static str;n]) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
@@ -60,13 +61,13 @@ pub struct FtpState {
 }
 impl FtpState {
     fn auth(&mut self, username: &str) -> std::io::Result<()> {
-        self.display_dir = format!("[{username}]:/");
+        self.display_dir = format!("/");
         self.permission_dir = PathBuf::from("./static/users").join(username).join("files").canonicalize()?;
         self.authenticated = true;
         Ok(())
     }
     fn deauth(&mut self) -> std::io::Result<()> {
-        self.display_dir = "[anonymous]:/".to_string();
+        self.display_dir = "/".to_string();
         self.permission_dir = PathBuf::from("./static/unauth").canonicalize()?;
         self.authenticated = false;
         Ok(())
@@ -113,31 +114,36 @@ impl TryFrom<&str> for Types {
 fn read_request(stream: &mut TcpStream) -> Result<FtpPacket, String> {
     let raw = read_until_consume(&stream, '\r');
     stream.read(&mut [0u8]).map_err(|err| err.to_string())?;
-    FtpPacket::new(String::from_utf8_lossy(&raw).to_string())
-        .ok_or(String::from_utf8_lossy(&raw).to_string())
+    FtpPacket::new(String::from_utf8_lossy(raw.as_ref().ok_or("Client disconnected".to_owned())?).to_string())
+        .ok_or(String::from_utf8_lossy(raw.as_ref().ok_or("Client disconnected".to_owned())?).to_string())
 }
-fn read_until_consume(mut stream: &TcpStream, chr: char) -> Vec<u8> {
+fn read_until_consume(mut stream: &TcpStream, chr: char) -> Option<Vec<u8>> {
     let mut byte = [0u8];
     let mut output = Vec::new();
     let _delay = stream.read_timeout().unwrap();
+    stream.set_read_timeout(Some(Duration::from_millis(100))).ok()?;
+    ftp_log!("{}", stream.peer_addr().ok()?);
     loop {
         match stream.read(&mut byte).map_err(|err| err.kind()) {
             Ok(size) => {
                 if size == 0 {
-                    break output;
+                    break Some(output);
                 }
+                ftp_log!("{}", char::from(byte[0]));
                 if char::from(byte[0]) == chr {
-                    break output;
+                    break Some(output);
                 }
                 output.push(byte[0]);
             }
             Err(err) => {
-                ftp_log!("Encountered an error: {err}");
+                // match err {v
+                //     std::io::ErrorKind::WouldBlock
+                // }
             }
         }
     }
 }
-fn handle_connection<const n: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;n]) {
+fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;N]) {
     {
         handshake::handshake(&mut stream);
         let mut state: FtpState =
@@ -185,6 +191,7 @@ fn handle_connection<const n: usize>(thread_counter: Arc<()>, mut stream: TcpStr
                         FtpMethod::Dele => dele::dele(&mut stream, &mut state, request.data),
                         FtpMethod::Rein => rein::rein(&mut stream, &mut state, request.data),
                         FtpMethod::Nlst => nlst::nlst(&mut stream, &mut state, request.data),
+                        FtpMethod::Opts => opts::opts(&mut stream, &mut state, request.data),
                         method => stream
                             .write_all(
                                 FtpCode::CmdNotImpl
@@ -205,6 +212,7 @@ fn handle_connection<const n: usize>(thread_counter: Arc<()>, mut stream: TcpStr
                 Err(err) => {
                     ftp_log!("Request failed: \"{err}\"");
                     if FtpCode::CmdNotImpl.send(&mut stream, "Not implemented.").is_err() {
+                        ftp_log!("Forced to disconnect");
                         break;
                     }
                 }
