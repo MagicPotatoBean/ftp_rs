@@ -13,7 +13,7 @@ pub fn pasv(
 ) -> Option<()> {
     if state.authenticated {
         for port in 1024..=2048 {
-            priv_addr.set_port(1025);
+            priv_addr.set_port(port);
             if let Ok(listener) = TcpListener::bind(priv_addr) {
                 if let IpAddr::V4(ipv4) = pub_addr.ip() {
                     let [ip1, ip2, ip3, ip4] = ipv4.octets();
@@ -28,6 +28,8 @@ pub fn pasv(
                         return Some(());
                     }
                 }
+            } else {
+                crate::ftp_log!("Port {} not available.", port)
             }
         }
     }
