@@ -30,7 +30,7 @@ mod nlst;
 mod opts;
 mod pasv;
 pub fn host_server<const n: usize>(pub_addr: SocketAddr, priv_addr: SocketAddr, max_threads: usize, salt: u128, protected_names: [&'static str;n]) -> std::io::Result<()> {
-    let listener = TcpListener::bind(pub_addr)?;
+    let listener = TcpListener::bind(priv_addr)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
     ftp_log!("==================== FTP Server running on {pub_addr} ====================");
     for client in listener.incoming().flatten() {
