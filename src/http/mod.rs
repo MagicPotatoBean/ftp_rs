@@ -21,15 +21,15 @@ static PATH: &str = "./static/users";
 /// to respond
 /// # Errors
 /// Returns an IO error if the TcpListener fails to bind to the requested address.
-pub fn host_server(address: SocketAddr, max_threads: usize) -> std::io::Result<()> {
-    let listener = TcpListener::bind(address)?;
+pub fn host_server(pub_addr: SocketAddr, priv_addr: SocketAddr, max_threads: usize) -> std::io::Result<()> {
+    let listener = TcpListener::bind(priv_addr)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count
-    http_log!("==================== HTTP Server running on {address} ====================");
+    http_log!("==================== HTTP Server running on {pub_addr} ====================");
     for client in listener.incoming().flatten() {
         if Arc::strong_count(&thread_count) <= max_threads {
             /* Ignores request if too many threads are spawned */
             let passed_count = thread_count.clone();
-            let new_addr = address.clone();
+            let new_addr = pub_addr.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
                 .spawn(move || handle_connection(passed_count, client, new_addr))
