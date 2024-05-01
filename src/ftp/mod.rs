@@ -39,7 +39,7 @@ pub fn host_server<const n: usize>(pub_addr: SocketAddr, priv_addr: SocketAddr, 
             let passed_count = thread_count.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client, salt, protected_names, priv_addr))
+                .spawn(move || handle_connection(passed_count, client, salt, protected_names, pub_addr))
                 .is_err()
             {
                 /* Spawn thread to handle request */
