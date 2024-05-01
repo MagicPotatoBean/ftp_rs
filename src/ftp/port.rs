@@ -15,7 +15,7 @@ pub fn port(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
                 state.data_connection = Some(new_stream);
             }
             Err(_) => {
-                FtpCode::CantOpenDataCon.send(stream, "Failed to open data connection").ok()?;
+                FtpCode::CantOpenDataCon.send(stream, "Failed to open data connection, you likely need to use passive mode.").ok()?;
                 return Some(());
             }
         }
