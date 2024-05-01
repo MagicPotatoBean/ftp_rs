@@ -4,7 +4,7 @@ use crate::ftp::{ftp_methods::FtpCode, FtpState};
 
 use super::list;
 
-pub fn template(
+pub fn pasv(
     stream: &mut TcpStream,
     state: &mut FtpState,
     request: Option<String>,

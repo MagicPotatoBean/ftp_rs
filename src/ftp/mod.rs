@@ -39,7 +39,7 @@ pub fn host_server<const n: usize>(address: SocketAddr, max_threads: usize, salt
             let passed_count = thread_count.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client, salt, protected_names))
+                .spawn(move || handle_connection(passed_count, client, salt, protected_names, address))
                 .is_err()
             {
                 /* Spawn thread to handle request */
@@ -123,14 +123,12 @@ fn read_until_consume(mut stream: &TcpStream, chr: char) -> Option<Vec<u8>> {
     let mut output = Vec::new();
     let _delay = stream.read_timeout().unwrap();
     stream.set_read_timeout(Some(Duration::from_millis(100))).ok()?;
-    ftp_log!("{}", stream.peer_addr().ok()?);
     loop {
         match stream.read(&mut byte).map_err(|err| err.kind()) {
             Ok(size) => {
                 if size == 0 {
                     break Some(output);
                 }
-                ftp_log!("{}", char::from(byte[0]));
                 if char::from(byte[0]) == chr {
                     break Some(output);
                 }
@@ -144,7 +142,7 @@ fn read_until_consume(mut stream: &TcpStream, chr: char) -> Option<Vec<u8>> {
         }
     }
 }
-fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;N]) {
+fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;N], addr: SocketAddr) {
     {
         handshake::handshake(&mut stream);
         let mut state: FtpState =
@@ -193,6 +191,7 @@ fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStr
                         FtpMethod::Rein => rein::rein(&mut stream, &mut state, request.data),
                         FtpMethod::Nlst => nlst::nlst(&mut stream, &mut state, request.data),
                         FtpMethod::Opts => opts::opts(&mut stream, &mut state, request.data),
+                        FtpMethod::Pasv => pasv::pasv(&mut stream, &mut state, request.data, addr),
                         method => stream
                             .write_all(
                                 FtpCode::CmdNotImpl
