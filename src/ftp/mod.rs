@@ -28,6 +28,7 @@ mod rmd;
 mod dele;
 mod nlst;
 mod opts;
+mod pasv;
 pub fn host_server<const n: usize>(address: SocketAddr, max_threads: usize, salt: u128, protected_names: [&'static str;n]) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     let thread_count: Arc<()> = Arc::new(()); // Counts the number of threads spawned based on the weak count

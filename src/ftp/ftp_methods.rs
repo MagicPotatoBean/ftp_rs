@@ -122,7 +122,11 @@ impl Display for FtpPacket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.method.to_string())?;
         if let Some(data) = self.data.as_ref() {
-            write!(f, " {}", data)?;
+            if let FtpMethod::Pass = self.method {
+                write!(f, " {}", "*".repeat(data.len()))?;
+            } else {
+                write!(f, " {}", data)?;
+            }
         }
         Ok(())
     }
