@@ -1,6 +1,6 @@
 use std::{
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
-    str::FromStr,
+    str::FromStr, time::Duration,
 };
 
 use crate::ftp::{FtpCode, FtpState};
@@ -9,7 +9,7 @@ pub fn port(stream: &mut TcpStream, state: &mut FtpState, request: Option<String
     if state.authenticated {
         ftp_log!("Attempting to change port.");
         let addr = decompose_port(&request?)?;
-        match TcpStream::connect(addr) {
+        match TcpStream::connect_timeout(&std::net::SocketAddr::V4(addr), Duration::from_secs(5)) {
             Ok(new_stream) => {
                 FtpCode::CmdOk.send(stream, &format!("Opened data connection on {}", addr)).ok()?;
                 state.data_connection = Some(new_stream);
