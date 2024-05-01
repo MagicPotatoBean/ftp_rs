@@ -21,6 +21,7 @@ pub fn pasv(
                     FtpCode::EnteringPassive.send(stream, &format!("({},{},{},{},{},{})", ip1, ip2, ip3, ip4, port1, port2)).ok()?;
                     if let Ok((connection, _)) = listener.accept() {
                         state.data_connection = Some(connection);
+                        FtpCode::DataConOpenNoTransfer.send(stream, "Connected").ok()?;
                         return Some(());
                     } else {
                         FtpCode::CmdSyntaxErr.send(stream, "UH OH").ok()?;
