@@ -39,7 +39,7 @@ pub fn host_server<const n: usize>(pub_addr: SocketAddr, priv_addr: SocketAddr, 
             let passed_count = thread_count.clone();
             if thread::Builder::new()
                 .name("ClientHandler".to_string())
-                .spawn(move || handle_connection(passed_count, client, salt, protected_names, pub_addr))
+                .spawn(move || handle_connection(passed_count, client, salt, protected_names, pub_addr, priv_addr))
                 .is_err()
             {
                 /* Spawn thread to handle request */
@@ -142,7 +142,7 @@ fn read_until_consume(mut stream: &TcpStream, chr: char) -> Option<Vec<u8>> {
         }
     }
 }
-fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;N], pub_addr: SocketAddr) {
+fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStream, salt: u128, protected_names: [&str;N], pub_addr: SocketAddr, priv_addr: SocketAddr) {
     {
         handshake::handshake(&mut stream);
         let mut state: FtpState =
@@ -191,7 +191,7 @@ fn handle_connection<const N: usize>(thread_counter: Arc<()>, mut stream: TcpStr
                         FtpMethod::Rein => rein::rein(&mut stream, &mut state, request.data),
                         FtpMethod::Nlst => nlst::nlst(&mut stream, &mut state, request.data),
                         FtpMethod::Opts => opts::opts(&mut stream, &mut state, request.data),
-                        FtpMethod::Pasv => pasv::pasv(&mut stream, &mut state, request.data, pub_addr),
+                        FtpMethod::Pasv => pasv::pasv(&mut stream, &mut state, request.data, pub_addr, priv_addr),
                         method => stream
                             .write_all(
                                 FtpCode::CmdNotImpl
