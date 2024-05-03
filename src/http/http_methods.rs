@@ -195,6 +195,10 @@ pub fn web_page(page: &str, packet: &mut HttpRequest, address: SocketAddr) {
             let _ =
                 packet.respond_data(&std::fs::read("site/favicon.ico").expect("Missing ico page."));
         }
+        "robots.txt" => {
+            let _ = packet.respond_string("HTTP/1.1 200 OK\r\n\r\n");
+            let _ = packet.respond_data(&std::fs::read("site/robots.txt").expect("Missing robots page."));
+        }
         _ => {
             http_log!("Unconfigured main page file requested: {page}")
         }
@@ -204,7 +208,7 @@ pub fn web_page(page: &str, packet: &mut HttpRequest, address: SocketAddr) {
 pub fn get(mut packet: HttpRequest, address: SocketAddr, path: &'static str) {
     if let Some(name) = packet.path() {
         let mut name = name[1..].to_owned();
-        if name == "" || name == "styles.css" || name == "script.js" || name == "favicon.ico" {
+        if name == "" || name == "styles.css" || name == "script.js" || name == "favicon.ico" || name == "robots.txt"{
             http_log!("Requesting main page \"{name}\"");
             web_page(&name, &mut packet, address);
         } else {
